@@ -65,8 +65,8 @@ class sic:
         pcproj = ccrs.PlateCarree()
         xbo,ybo = ptproj(pcproj,sicprj,mds.lon.values,mds.lat.values)
         self.data_ease2 = ds_regrid.where(
-                (xbo<self.data.xgrid.values.max())&(xbo>self.data.xgrid.values.min())&
-                (ybo<self.data.ygrid.values.max())&(ybo>self.data.ygrid.values.min())
+                (xbo<self.grid.x.values.max())&(xbo>self.grid.x.values.min())&
+                (ybo<self.grid.y.values.max())&(ybo>self.grid.y.values.min())
                 )
         
         return
@@ -158,8 +158,7 @@ class sic:
     def time(self):
         return self._time()
     
-    def daily_time(self):  
-        return pd.date_range(self.year+'0101',self.year+'1231',freq='D')
+    
     
     def _time(self):
         rx = re.compile('(\d{8})')

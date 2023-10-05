@@ -4,6 +4,30 @@ import re
 from pathlib import Path
 
 
+def iceage_db(ICEAGE_ROOT):
+    '''
+    '''
+    fns = sorted(Path(ICEAGE_ROOT).glob('*.nc'))
+    rx = re.compile('(\d{8})')
+    yrs = [rx.findall(x.name).pop()[:4] for x in fns]
+    return pd.DataFrame(dict(time=pd.to_datetime(yrs),fn=fns))
+
+def onset_db_bin(ONSET_ROOT):
+    '''
+    '''
+    melt_fns = sorted( Path(ONSET_ROOT).glob('*731smelt.*') )
+    freeze_fns = sorted( Path(ONSET_ROOT).glob('*731sfreeze.*') )
+    return melt_fns, freeze_fns
+
+
+
+def onset_db(ONSET_ROOT):
+    '''
+    '''
+    fns = sorted( Path(ONSET_ROOT).glob('*731smelt*.nc') )
+    yrs = [x.name[:4] for x in onset_fns]
+    return pd.DataFrame(dict(time=pd.to_datetime(yrs),fn=fns))
+
 def piomas_db(PIOMAS_ROOT):
     '''
     '''
