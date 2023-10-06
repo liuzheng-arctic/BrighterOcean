@@ -55,20 +55,58 @@ class sic:
 
         return 
     
-    def regrid(self,mds=None,sicprj=None):
+    
+    def regrid(self,mds=None,sicprj=None,vn_mask='cdr_seaice_conc',add_mask=True):
         '''
         '''
         assert hasattr(self,'regridder'), 'Please set up regridder first.'
         if mds is None: mds, _ = set_BOEASE2()
         if sicprj is None: mds_sic, sicprj = self.set_proj(self.grid)
-        ds_regrid = self.regridder(self.data)
-        pcproj = ccrs.PlateCarree()
-        xbo,ybo = ptproj(pcproj,sicprj,mds.lon.values,mds.lat.values)
-        self.data_ease2 = ds_regrid.where(
-                (xbo<self.grid.x.values.max())&(xbo>self.grid.x.values.min())&
-                (ybo<self.grid.y.values.max())&(ybo>self.grid.y.values.min())
-                )
-        
+
+        ## --- for testing contamination 
+        # data_mask = self.data
+        # if add_mask: data_mask = self.mask2nan(vn_mask=vn_mask)
+        # --- add mask to filter nan and out-of-bound pixels
+        #     need skipna to avoid spotty missing values due to reprojection
+        #     na_thres 0 seems to work but keep at 1 to be safe
+        #     Refer to Masking page on xESMF doc for more details.
+        ds_mask = self._add_mask(vn_mask=vn_mask)
+        ds_regrid = self.regridder(ds_mask,skipna=True,na_thres=1)
+        # --- interpolated lat/lon is always trash, esp. lon near dateline
+        #     use the lat/lon set by the regridder instead
+        for vn in ['Latitude','Longitude']:
+            if vn in ds_regrid.data_vars:
+                ds_regrid = ds_regrid.drop([vn])
+        self.data_ease2 = ds_regrid
+        if add_mask: self._apply_mask(vn_mask=vn_mask)
+        # --- the following for out-of-bound reprojection mask 
+        #     seems obsolete with explicit masking. 
+        # pcproj = ccrs.PlateCarree()
+        # xbo,ybo = ptproj(pcproj,sicprj,mds.lon.values,mds.lat.values)
+        # self.data_ease2 = ds_regrid.where(
+        #         (xbo<self.grid.x.values.max())&(xbo>self.grid.x.values.min())&
+        #         (ybo<self.grid.y.values.max())&(ybo>self.grid.y.values.min())
+        #         )
+        self.data_ease2['X'] = mds.X 
+        self.data_ease2['Y'] = mds.Y
+
+        return #self.data_ease2
+    
+    def _add_mask(self,vn_mask='cdr_seaice_conc'):
+        '''
+        '''
+        # --- set land/lake/coast to nan to avoid contamination
+        vns = [vn for vn in self.data.data_vars if vn!='projection']
+        vmask = xr.where( self.data[vn_mask]<2, 1, 0 )
+        ds_mask = self.data[vns]
+        ds_mask['nMask'] = vmask
+        return ds_mask
+    
+    def _apply_mask(self,vn_mask='cdr_seaice_conc'):
+        '''
+        '''
+        tdat = self.data_ease2[vn_mask]
+        self.data_ease2[vn_mask] = xr.where(self.data_ease2['nMask']==1, tdat, np.nan)
         return
     
     def set_grid(self,grid_fn=None,ds_grid=None):

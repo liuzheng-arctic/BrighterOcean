@@ -59,19 +59,45 @@ class iceage:
     
     
     
-    def regrid(self,mds=None,sicprj=None):
+    def regrid(self,mds=None,vn_mask='age_of_sea_ice'):
         '''
         '''
         assert hasattr(self,'regridder'), 'Please set up regridder first.'
         if mds is None: mds, _ = set_BOEASE2()
-        if sicprj is None: mds_sic, sicprj = self.set_proj()
-        tdata = self.data.where(self.data['age_of_sea_ice']<20)
-        ds_regrid = self.regridder(tdata)
+        #if sicprj is None: mds_sic, sicprj = self.set_proj()
+
+        
+        ds_mask = self._add_mask(vn_mask=vn_mask)
+        #tdata = self.data.where(self.data['age_of_sea_ice']<20)
+        ds_regrid = self.regridder(ds_mask,skipna=True)
         ds_regrid['Y'] = mds['Y']
         ds_regrid['X'] = mds['X']
+        #ds_grid['age_of_sea_ice'].round()
         self.data_ease2 = ds_regrid
-        
-        return ds_regrid
+        self._apply_mask(vn_mask=vn_mask)
+        self.data_ease2 = np.ceil(self.data_ease2)
+         
+        return #ds_regrid
+    
+
+    def _add_mask(self,vn_mask='age_of_sea_ice'):
+        '''
+        '''
+        # --- set land/lake/coast to nan to avoid contamination
+        vns = [vn_mask]
+        it = 0
+        vmask = xr.where( (self.data[vn_mask][it]>=0)&(self.data[vn_mask][it]<20), 1, 0 )
+        ds_mask = self.data[vns]
+        ds_mask['nMask'] = vmask
+        return ds_mask
+    
+    def _apply_mask(self,vn_mask='age_of_sea_ice'):
+        '''
+        '''
+        tdat = self.data_ease2[vn_mask]
+        #self.data_ease2[vn_mask] = xr.where(self.data_ease2['nMask']==1, tdat, np.nan).transpose('time','Y','X')
+        self.data_ease2[vn_mask] = tdat.where(self.data_ease2['nMask']==1)
+        return
     
     def interp(self,t_stamp,
                grid='org',
@@ -96,10 +122,7 @@ class iceage:
             ds = self.data[vn]
         elif grid == 'regrid':
             ds = self.data_ease2[vn]
-        if type(t_stamp) is str:
-            tpd = pd.to_datetime(t_stamp,format=format)
-        elif type(t_stamp) is pd.Timestamp:
-            tpd = t_stamp
+        tpd = pd.to_datetime(t_stamp,format=format)
         t_ctr = (tpd+pd.Timedelta(offset,'D')).strftime(format=format)
         t_intp = cftime.DatetimeJulian.strptime(t_ctr,format,calendar='julian')
         ods = ds.interp(time=t_intp,method=method)
