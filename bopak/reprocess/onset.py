@@ -11,7 +11,7 @@ class onset(sic):
         # --- set land/lake/coast to nan to avoid contamination
         ds_mask = self.data
         for vn in ['Melt','Earlymelt','Freeze','Earlyfreeze']:
-            ds_mask[f'nMask_{vn}'] = xr.where( self.data[vn]<0, 0, 1 )
+            ds_mask[f'nMask_{vn}'] = xr.where( self.data[vn]>0, 1, 0 )
         return ds_mask
     
     def _apply_mask(self,vn_mask='cdr_seaice_conc'):
@@ -26,7 +26,9 @@ class onset(sic):
         '''
         '''
         super().regrid(mds=mds,sicprj=proj,vn_mask=vn_mask,add_mask=add_mask)
-        return #self.data_ease2
+        for vn in ['Melt','Earlymelt','Freeze','Earlyfreeze']:
+            self.data_ease2[vn] = self.data_ease2[vn].round()
+        return #* self.data_ease2
 
     def _time(self):
         return pd.to_datetime(self.fn.name[:4])

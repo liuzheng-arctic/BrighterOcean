@@ -103,8 +103,8 @@ class iceage:
                grid='org',
                format='%Y-%m-%d',
                vn = 'age_of_sea_ice',
-               method = 'linear',
-               round = True,
+               method = 'nearest',
+               round = False,
                offset = 3,
                ):
         '''
@@ -116,15 +116,19 @@ class iceage:
         Both (2) and (3) use a signle value for a week. 
 
         '''
-        assert grid in ['org','regrid'], 'Unknow grid type.'
+        assert grid in ['org','EASE2'], f'Unknow grid type: {grid}.'
         assert type(t_stamp) in [str,pd.Timestamp]
         if grid == 'org':
             ds = self.data[vn]
-        elif grid == 'regrid':
+        elif grid == 'EASE2':
             ds = self.data_ease2[vn]
         tpd = pd.to_datetime(t_stamp,format=format)
-        t_ctr = (tpd+pd.Timedelta(offset,'D')).strftime(format=format)
+        t_ctr = (tpd-pd.Timedelta(offset,'D')).strftime(format=format)
         t_intp = cftime.DatetimeJulian.strptime(t_ctr,format,calendar='julian')
+        if t_intp<self.data_ease2.time[0]:
+            t_intp = self.data_ease2.time[0]
+        if t_intp>self.data_ease2.time[-1]:
+            t_intp = self.data_ease2.time[-1]
         ods = ds.interp(time=t_intp,method=method)
         if round: ods = ods.round()
         return ods
