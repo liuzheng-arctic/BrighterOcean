@@ -15,7 +15,7 @@ from bopak.reprocess import set_BOEASE2
 
 # %%
 SYEAR = 1984
-EYEAR = 1984
+EYEAR = 2022
 alb_version = 'V0.01'
 
 
