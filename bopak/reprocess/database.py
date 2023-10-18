@@ -4,6 +4,14 @@ import re
 from pathlib import Path
 
 
+def albedo_db(ALB_ROOT):
+    '''
+    '''
+    fns = sorted( ALB_ROOT.glob('*.nc') )
+    rx = re.compile('(\d{4})')
+    yrs = map(int,[rx.findall(x.name).pop() for x in fns])
+    return pd.DataFrame(dict(year=yrs, fn=fns))
+
 def iceage_db(ICEAGE_ROOT):
     '''
     '''

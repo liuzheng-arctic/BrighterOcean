@@ -61,6 +61,7 @@ class albedo:
             ds_fnl[vn] = xr.DataArray(np.nan,coords=dict(X=ds.X,Y=ds.Y),dims=('Y','X'))
 
         self.data = ds
+        # --- now, use alb_fnl to track albedo on day efreeze-1 for multi-year and on freeze-1 for first-year
         self.alb_fnl = ds_fnl
         return
     
@@ -89,6 +90,9 @@ class albedo:
         stg5 = (doy>=melt+T_ALL_STG_FIRST+1) & (doy<freeze) & valid_onset
         stg6 = (doy>=freeze) & valid_onset
 
+        
+        stg_em = (doy==freeze-1) & valid_onset
+
         R1 = (0.6-SNOW_ALB)/7.
         R2 = (0.32-.6)/7.
         R3 = (0.54-0.32)/7.
@@ -107,8 +111,18 @@ class albedo:
         tdat = xr.where( stg4_end, 0.2, tdat )
         # --- Stage 5: 0.2 to 0.07
         tdat = xr.where( stg5, 0.07, tdat )
+
+        
+        tdat_em = self.alb_fnl['first_year']
+        tdat_em = xr.where( stg_em, tdat, tdat_em )
+        self.alb_fnl['first_year'] = tdat_em
+
         # --- Stage 6: freezing, ramp up to 0.85
-        tdat = xr.where( stg6, OCN_ALB + (doy-freeze)*R6 , tdat )
+        #tdat = xr.where( stg6, OCN_ALB + (doy-freeze)*R6 , tdat )
+        tdat = xr.where( stg6 & (tdat_em<=OCN_ALB), OCN_ALB + (doy-freeze)*R6 , tdat )
+        tdat = xr.where( stg6 & (tdat_em>OCN_ALB), tdat_em + (doy-freeze)*R6 , tdat )
+        # tdat = xr.where( stg6 & (freeze>=melt+T_ALL_STG_FIRST+1), OCN_ALB + (doy-freeze)*R6 , tdat )
+        # tdat = xr.where( stg6 & (freeze<melt+T_ALL_STG_FIRST+1) , 0.54 + (freeze-melt-21)*R4 + (doy-freeze)*R6 , tdat )
         
         tdat = xr.where( stg6 & (tdat>SNOW_ALB) , SNOW_ALB, tdat )
 
@@ -133,6 +147,9 @@ class albedo:
         doy = t0.day_of_year
         it = doy - 1
         tdat = self.data['multi_year'][it]
+        # tdat0 = self.data['multi_year'][0].values*1.
+        # if it>1:
+        #     tdat0 = self.data['multi_year'][it-1].values*1.
 
         emelt = self.onset_date['Earlymelt']
         melt = self.onset_date['Melt']
@@ -155,6 +172,8 @@ class albedo:
         stg5 = (doy>=efreeze) & (doy<freeze) & valid_onset
         stg6 = (doy>=freeze) & valid_onset
 
+        stg_em = (doy==efreeze-1) & valid_onset
+
         R2 = (0.71-0.81)/15.
         R3 = (0.5-0.70)/6
         R4 = -0.0029
@@ -171,11 +190,22 @@ class albedo:
         # --- Stage 4: 
         tdat = xr.where( stg4, 0.56 + (doy-melt-22-1)*R4, tdat )
         tdat = xr.where( stg4&(tdat<.2) , 0.2, tdat   )
+
+        tdat_em = self.alb_fnl['multi_year']
+        tdat_em = xr.where( stg_em, tdat, tdat_em )
+        self.alb_fnl['multi_year'] = tdat_em
         # --- Stage 5: 
-        tdat = xr.where( stg5&(tdat<0.46), 0.46, tdat )
+        tdat = xr.where( stg5&((tdat_em>=0.46)|tdat.isnull()), tdat_em, tdat )
+        tdat = xr.where( stg5&((tdat_em<0.46)|tdat.isnull()), 0.46, tdat )
+
+        #tdat = xr.where( stg5&(efreeze>=melt+T_ALL_STG_MULTI), 0.46, tdat )
+        #tdat = xr.where( stg5&(efreeze<melt+T_ALL_STG_MULTI), 0.56 + (efreeze-melt-22-1)*R4, tdat )
         #tdat = tdat( stg5&(tdat>=0.46), 0.46 )
         # --- Stage 6: 
-        tdat = xr.where( stg6, 0.46 + (doy-freeze)*R6 , tdat )        
+        tdat = xr.where( stg6&(tdat_em<=.46) , 0.46 + (doy-freeze)*R6 , tdat )   
+        tdat = xr.where( stg6&(tdat_em>.46) , tdat_em + (doy-freeze)*R6 , tdat )    
+        # tdat = xr.where( stg6 & (freeze>=melt+T_ALL_STG_MULTI), 0.46 + (doy-freeze)*R6 , tdat )   
+        # tdat = xr.where( stg6 & (freeze<melt+T_ALL_STG_MULTI), 0.56 + (efreeze-melt-22-1)*R4 + (doy-freeze)*R6 , tdat )        
         tdat = xr.where( tdat>SNOW_ALB , SNOW_ALB, tdat )
 
         # --- assign tdat back to data
@@ -201,7 +231,7 @@ class albedo:
         fy_it = self.data['first_year'][it]
         my_it = self.data['multi_year'][it]
 
-        ia_it = xr.where( ice_age==1 , fy_it, my_it )
+        ia_it = xr.where( ice_age<=1 , fy_it, my_it )
         # --- filter by ice age data. Remove pixels without ice age too. 
         ia_it = ia_it.where( (ice_age>=0)&(ice_age<20) )
         self.data['actual_age'][it] = ia_it

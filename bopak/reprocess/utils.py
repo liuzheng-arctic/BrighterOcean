@@ -20,7 +20,18 @@ def set_BOEASE2():
 
     return set_ease(version=2,XLIM=XLIM_BO,YLIM=YLIM_BO)
 
+def loc_ease2(lon,lat,mds=None,boprj=None):
+    '''
+    '''
+    if mds is None or boprj is None:
+        mds, boprj = set_BOEASE2()
 
+    pcproj = ccrs.PlateCarree()
+    tx,ty = ptproj(pcproj,boprj,lon,lat)
+    ix = int(np.floor((tx+mds.XLIM)/mds.dx))
+    iy = int(np.floor((ty+mds.YLIM)/mds.dy))
+
+    return iy, ix
 
 def set_ease(
         XLIM = 5000e3,

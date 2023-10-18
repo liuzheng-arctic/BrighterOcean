@@ -16,10 +16,15 @@ from bopak.reprocess import set_BOEASE2
 # %%
 SYEAR = 1984
 EYEAR = 2022
-alb_version = 'V0.01'
+# SYEAR = 2006
+# EYEAR = 2006
+alb_version = 'V0.03'
 
 
-outdir = Path('/data/BO/albedo')
+outdir = Path('/data/BO/EASE2/albedo')
+ONSET_OUT = Path('/data/BO/EASE2/onset')
+IA_OUT = Path('/data/BO/EASE2/ICEAGE/V4')
+
 SIC_ROOT = Path('/data/BO/CDR_SIC/')
 ONSETNC_ROOT = Path('/data/BO/MeltFreezeOnset_NetCDF/')
 IA_ROOT = Path('/data/BO/ICEAGE/V4')
@@ -33,6 +38,8 @@ ia_df = iceage_db(IA_ROOT)
 # %%
 fcomp = dict(zlib=True, complevel=5, dtype='float32')
 if not outdir.exists(): outdir.mkdir(parents=True, exist_ok=True)
+if not ONSET_OUT.exists(): ONSET_OUT.mkdir(parents=True, exist_ok=True)
+if not IA_OUT.exists(): IA_OUT.mkdir(parents=True, exist_ok=True)
 # %%
 
 # --- setup map for EASE2
@@ -80,6 +87,13 @@ for iyr, tyr in enumerate(range(SYEAR, EYEAR+1)):
     reuse_weight_ia = True
     dat_onset.regrid(mds=mds,proj=sicprj)
     dat_ia.regrid(mds=mds)
+
+    fn_onset_out = ONSET_OUT/fn_onset.name
+    fn_ia_out = IA_OUT/fn_ia.name
+    encoding_onset = {var: fcomp for var in dat_onset.data_ease2.data_vars}
+    encoding_ia = {var: fcomp for var in dat_ia.data_ease2.data_vars}
+    dat_onset.data_ease2.to_netcdf(fn_onset_out,encoding=encoding_onset)
+    dat_ia.data_ease2.to_netcdf(fn_ia_out,encoding=encoding_ia)
  
 
     # --- load init for albedo from previous year
