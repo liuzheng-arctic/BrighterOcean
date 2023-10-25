@@ -53,3 +53,11 @@ def sic_db(SIC_ROOT):
     rx = re.compile('(\d{8})')
     tt = [rx.findall(x.name).pop() for x in fns]
     return pd.DataFrame(dict(time=pd.to_datetime(tt),fn=fns))
+
+def sic_db_ease2(SIC_ROOT):
+    '''
+    '''
+    fns = sorted( Path(SIC_ROOT).glob('*'+'[0-9]'*4+'*.nc') )
+    rx = re.compile('(\d{4})')
+    tt = [rx.findall(x.name).pop() for x in fns]
+    return pd.DataFrame(dict(time=pd.to_datetime(tt),fn=fns))

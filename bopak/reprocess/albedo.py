@@ -74,8 +74,10 @@ class albedo:
         doy = t0.day_of_year
         it = doy - 1
         tdat = self.data['first_year'][it]
-        melt = self.onset_date['Melt']
-        freeze = self.onset_date['Freeze']
+        # melt = self.onset_date['Melt']
+        # freeze = self.onset_date['Freeze']
+        melt = self.onset_date['Earlymelt']
+        freeze = self.onset_date['Earlyfreeze']
 
         valid_melt = (melt>=MELT_MIN) & (melt<=MELT_MAX)
         valid_freeze = (freeze>=FREEZE_MIN) & (melt<=FREEZE_MAX)

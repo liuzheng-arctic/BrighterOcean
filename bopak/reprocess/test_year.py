@@ -8,7 +8,7 @@ import cartopy.crs as ccrs
 from cartopy.feature import OCEAN 
 from cartopy.feature import LAND
 
-from .database import iceage_db, onset_db, albedo_db
+from .database import iceage_db, onset_db, albedo_db, sic_db_ease2
 from .utils import set_BOEASE2, loc_ease2
 from .sic import sic
 from .onset import onset
@@ -21,6 +21,7 @@ class test_year:
                  ia_root = None,
                  onset_root = None,
                  alb_root = None,
+                 sic_root = None,
                  ):
         '''
         '''
@@ -28,6 +29,7 @@ class test_year:
         self.ia_root = ia_root
         self.onset_root = onset_root
         self.alb_root = alb_root
+        self.sic_root = sic_root
         # if ia_root is not None: self.load_iceage(ia_root)
         # if onset_root is not None: self.load_onset(onset_root)
         # if alb_root is not None: self.load_albedo(alb_root)
@@ -42,6 +44,13 @@ class test_year:
         onset_df = onset_db(self.onset_root)
         ia_df = iceage_db(self.ia_root)
         alb_df = albedo_db(self.alb_root)
+
+        if self.sic_root is not None:
+            sic_df = sic_db_ease2(self.sic_root)
+            fn_sic = sic_df[sic_df.time.dt.year==tyr].iloc[0].fn
+            with xr.open_dataset(fn_sic) as ds:
+                ds.load()
+            self.sic = ds
 
         mds, boprj = set_BOEASE2()
         self.mds = mds
@@ -59,6 +68,10 @@ class test_year:
         with xr.open_dataset(fn_ia) as ds:
             ds.load()
         self.iceage = ds
+
+        with xr.open_dataset(fn_alb) as ds:
+            ds.load()
+        self.alb = ds
 
         with xr.open_dataset(fn_alb) as ds:
             ds.load()
@@ -120,6 +133,7 @@ class test_year:
             #linestyle='-',
             marker=None,
             ms=None,
+            add_sic=False,
             ):
         '''
         '''
@@ -181,7 +195,11 @@ class test_year:
             ax.set_xlim(xlim_pd)
             x0 = xlim_pd[0]
 
-        ax.set_ylim([0,.9])
+        #ax.set_ylim([0,.9])
+        ax.set_ylim([0,1.01])
+        if self.sic_root is not None and add_sic:
+            sic0 = self.sic['cdr_seaice_conc'].isel(X=ix,Y=iy)
+            ax.plot(tt,sic0,'m-',lw=lw)
         ax.grid(True)
         ax.annotate(f'Early Melt: {em_str}: {em_jday}',(x0,.8))
         ax.annotate(f'Melt: {md_str}: {md_jday}',(x0,.7))

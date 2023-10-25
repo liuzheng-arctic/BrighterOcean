@@ -16,13 +16,13 @@ from bopak.reprocess import set_BOEASE2
 # %%
 SYEAR = 1984
 EYEAR = 2022
-# SYEAR = 2006
-# EYEAR = 2006
-alb_version = 'V0.03'
+SYEAR = 2022
+EYEAR = 2022
+alb_version = 'V0.04'
 
 
-outdir = Path('/data/BO/EASE2/albedo')
-ONSET_OUT = Path('/data/BO/EASE2/onset')
+outdir = Path('/data/BO/EASE2/albedo/{alb_version}')
+ONSET_OUT = Path(f'/data/BO/EASE2/onset')
 IA_OUT = Path('/data/BO/EASE2/ICEAGE/V4')
 
 SIC_ROOT = Path('/data/BO/CDR_SIC/')
