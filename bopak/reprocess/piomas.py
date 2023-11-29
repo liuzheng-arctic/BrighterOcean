@@ -69,7 +69,8 @@ class piomas:
     def set_regridder(
             self,mds, 
             regridder_fn=None,
-            reuse_weight = False,            
+            reuse_weight = False,       
+            method='bilinear',     
             ):
         '''
         '''
@@ -83,7 +84,7 @@ class piomas:
         dsin = xr.Dataset(coords=dict(lat=(['Y','X'],self.data.lat.values),lon=(['Y','X'],self.data.lon.values)))
         dsout = xr.Dataset(coords=dict(lat=(['Y','X'],mds.lat.values),
                                     lon=(['Y','X'],mds.lon.values)))
-        self.regridder = xesmf.Regridder(dsin,dsout,'bilinear',periodic=True,
+        self.regridder = xesmf.Regridder(dsin,dsout,method=method,periodic=True,
                                 reuse_weights=reuse_weight,filename=self.regridder_fn)
         return 
     
@@ -150,7 +151,12 @@ class piomas:
         return self._year()
     
     def daily_time(self):  
-        return pd.date_range(self.year+'0101',self.year+'1231',freq='D')
+        '''
+        For leap years, the last day is dropped in PIOMAS for similicity. 
+        '''
+        isleap = pd.to_datetime(f'{self.year}0101',format='%Y%m%d').is_leap_year
+        end_date = '1230' if isleap else '1231'
+        return pd.date_range(self.year+'0101',self.year+end_date,freq='D')
     
     def _year(self):
         rx = re.compile('H(\d{4})')

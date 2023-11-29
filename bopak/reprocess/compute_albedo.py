@@ -6,22 +6,23 @@ import cartopy.crs as ccrs
 from pathlib import Path
 from datetime import datetime
 import timeit
-
+import warnings
 
 from bopak.reprocess import albedo, onset, sic, iceage
 from bopak.reprocess import onset_db,sic_db,ptproj, iceage_db
 from bopak.reprocess import set_BOEASE2
 
+warnings.filterwarnings("ignore")
 
 # %%
 SYEAR = 1984
 EYEAR = 2022
-SYEAR = 2022
-EYEAR = 2022
-alb_version = 'V0.04'
+# SYEAR = 2007
+# EYEAR = 2022
+alb_version = 'V0.05'
 
 
-outdir = Path('/data/BO/EASE2/albedo/{alb_version}')
+outdir = Path(f'/data/BO/EASE2/albedo/{alb_version}')
 ONSET_OUT = Path(f'/data/BO/EASE2/onset')
 IA_OUT = Path('/data/BO/EASE2/ICEAGE/V4')
 

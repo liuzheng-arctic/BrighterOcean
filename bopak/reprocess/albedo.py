@@ -31,7 +31,6 @@ class albedo:
         '''
         '''
         self.year = year
-        print('here')
         self.onset_date = onset_date
         self.alb_init = alb_init
         self.set_grid(mds=mds,boprj=boprj)
@@ -74,10 +73,10 @@ class albedo:
         doy = t0.day_of_year
         it = doy - 1
         tdat = self.data['first_year'][it]
-        # melt = self.onset_date['Melt']
-        # freeze = self.onset_date['Freeze']
-        melt = self.onset_date['Earlymelt']
-        freeze = self.onset_date['Earlyfreeze']
+        melt = self.onset_date['Melt']
+        freeze = self.onset_date['Freeze']
+        # melt = self.onset_date['Earlymelt']
+        # freeze = self.onset_date['Earlyfreeze']
 
         valid_melt = (melt>=MELT_MIN) & (melt<=MELT_MAX)
         valid_freeze = (freeze>=FREEZE_MIN) & (melt<=FREEZE_MAX)
@@ -136,11 +135,84 @@ class albedo:
             self.alb_fnl['first_year'] = self.data['first_year'][it]
 
         return #tdat
-    
-
-
-    
+     
     def multi_year(self, 
+                  t_stamp, 
+                  format='%Y-%m-%d'):
+        '''
+        '''
+        t0 = pd.to_datetime(t_stamp,format=format)
+        doy = t0.day_of_year
+        it = doy - 1
+        tdat = self.data['multi_year'][it]
+        # tdat0 = self.data['multi_year'][0].values*1.
+        # if it>1:
+        #     tdat0 = self.data['multi_year'][it-1].values*1.
+
+        melt = self.onset_date['Melt']
+        freeze = self.onset_date['Freeze']
+
+        valid_melt = (melt>=MELT_MIN) & (melt<=MELT_MAX)
+        valid_freeze = (freeze>=FREEZE_MIN) & (melt<=FREEZE_MAX)
+        valid_onset = valid_melt & valid_freeze 
+
+        #stg0 = (doy<emelt) & valid_onset
+        #stg1 = (doy>=emelt) &(doy<melt) & valid_onset
+        stg1 = (doy<melt) & valid_onset
+        stg2 = (doy>=melt) & (doy<=melt+15) & (doy<freeze) & valid_onset
+        stg3 = (doy>melt+15) & (doy<=melt+22) & (doy<freeze) & valid_onset
+        # stg4 = (doy>melt+22) & (doy<melt+T_ALL_STG_MULTI) & (doy<efreeze) & valid_onset
+        # stg4_end = (doy>=melt+T_ALL_STG_MULTI) & (doy<efreeze) & valid_onset
+        #stg4 = (doy>melt+22) & (doy<melt+T_ALL_STG_MULTI) & (doy<=efreeze)&  valid_onset
+        stg4 = (doy>melt+22) & (doy<melt+T_ALL_STG_MULTI) & (doy<freeze)&  valid_onset
+        stg4_end = (doy>=melt+T_ALL_STG_MULTI) & (doy<freeze)&  valid_onset
+        #stg5 = (doy>=efreeze) & (doy<freeze) & valid_onset
+        stg6 = (doy>=freeze) & valid_onset
+
+        stg_em = (doy==freeze-1) & valid_onset
+
+        R2 = (0.71-SNOW_ALB)/15.
+        R3 = (0.5-0.70)/6
+        R4 = -0.0029
+        R6 = 0.026
+
+        #tdat = xr.where( stg0, SNOW_ALB, tdat )
+        # --- Stage 1
+        tdat = xr.where( stg1, SNOW_ALB, tdat )
+        # --- Stage 2
+        tdat = xr.where( stg2, SNOW_ALB + (doy-melt)*R2, tdat )
+        # --- Stage 3
+        tdat = xr.where( stg3, 0.70 + (doy-melt-15-1)*R3, tdat )
+        #tdat = xr.where( stg3_end, 0.56, tdat )
+        # --- Stage 4: 
+        tdat = xr.where( stg4, 0.56 + (doy-melt-22-1)*R4, tdat )
+        tdat = xr.where( stg4&(tdat<.2) , 0.2, tdat   )
+        # --- Stage 4_end: 
+        tdat = xr.where( stg4_end, 0.2, tdat  )
+
+        tdat_em = self.alb_fnl['multi_year']
+        tdat_em = xr.where( stg_em, tdat, tdat_em )
+        self.alb_fnl['multi_year'] = tdat_em
+        # --- Stage 5: 
+        # tdat = xr.where( stg5&((tdat_em>=0.46)|tdat.isnull()), tdat_em, tdat )
+        # tdat = xr.where( stg5&((tdat_em<0.46)|tdat.isnull()), 0.46, tdat )
+
+        # --- Stage 6: 
+        tdat = xr.where( stg6&(tdat_em<=.46) , 0.46 + (doy-freeze)*R6 , tdat )   
+        tdat = xr.where( stg6&(tdat_em>.46) , tdat_em + (doy-freeze)*R6 , tdat )          
+        tdat = xr.where( tdat>SNOW_ALB , SNOW_ALB, tdat )
+
+        # --- assign tdat back to data
+        self.data['multi_year'][it] = tdat
+
+        if doy==len(self.data.time):
+            self.alb_fnl['multi_year'] = self.data['multi_year'][it]
+            
+        return #tdat   
+
+
+    
+    def multi_year_all_onset(self, 
                   t_stamp, 
                   format='%Y-%m-%d'):
         '''

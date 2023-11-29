@@ -121,8 +121,7 @@ class test_year:
 
         return fig, axs
     
-
-    def plot_accordion(
+    def plot_accordion_report(
             self,lat,lon,
             ftsz=16,
             lw=2, 
@@ -134,6 +133,7 @@ class test_year:
             marker=None,
             ms=None,
             add_sic=False,
+            add_onset_dates=False,
             ):
         '''
         '''
@@ -181,12 +181,107 @@ class test_year:
         if fig is None or ax is None: 
             fig, ax = plt.subplots(1,1,figsize=(10,5))
 
+        #ax.plot(tt,fy,'g',tt,my,'k',tt,aa,'b',lw=2,marker=marker,ms=ms)
+        ax.plot(tt,fy,'g',lw=2,marker=marker,ms=ms)
+        if self.sic_root is not None and add_sic:
+            sic0 = self.sic['cdr_seaice_conc'].isel(X=ix,Y=iy)
+            ax.plot(tt,sic0,'b-',lw=lw)
+        ax.grid(True)
+        ax.legend(['first-year sea ice albedo','sea ice concentration'],loc=3,fontsize=ftsz)
+        if add_onset_dates:
+            ax.axvline(x=em,ymax=.9,linestyle=':',color='r',alpha=.7)
+            ax.axvline(x=md,ymax=.9,linestyle='-.',color='r',alpha=.7)
+            ax.axvline(x=ef,ymax=.3,linestyle=':',color='k',alpha=.7)
+            ax.axvline(x=fr,ymax=.3,linestyle='-.',color='k',alpha=.7)
+        #ax.fill_between(tt,ia_mask,color='.5',alpha=.3)
+
+        x0 = pd.to_datetime(str(tyr)+'0101')
+        if xlim is not None:
+            xlim_pd = pd.to_datetime(xlim)
+            ax.set_xlim(xlim_pd)
+            x0 = xlim_pd[0]
+
+        #ax.set_ylim([0,.9])
+        ax.set_ylim([0,1.01])
+        # ax.annotate(f'Early Melt: {em_str}: {em_jday}',(x0,.8))
+        # ax.annotate(f'Melt: {md_str}: {md_jday}',(x0,.7))
+        # ax.annotate(f'Early freeze: {ef_str}: {ef_jday}',(x0,.6))
+        # ax.annotate(f'Freeze: {fr_str}: {fr_jday}',(x0,.5))
+        # ax.annotate(f'Gray shading: ice age>1',(x0,.4))
+        ax.set_title(f'{tyr}: lat={lat}, lon={lon}',fontsize=ftsz)
+        #ax.set_ylabel('albedo',fontsize=ftsz-2)
+        if add_xlabel: ax.set_xlabel('date',fontsize=ftsz-2)
+        #xticks = ax.get_xt
+        return fig, ax
+
+   
+    
+
+    def plot_accordion(
+            self,lat,lon,
+            ftsz=16,
+            lw=2, 
+            fig = None, 
+            ax = None,
+            add_xlabel=True,
+            xlim=None,
+            #linestyle='-',
+            marker=None,
+            ms=None,
+            add_sic=False,
+            ):
+        '''
+        '''
+
+        tyr = self.year
+        iy,ix = loc_ease2(lon,lat)
+
+        tt = self.alb.time
+        alb0 = self.alb.isel(X=ix,Y=iy)
+        onset0 = self.onset.isel(X=ix,Y=iy)
+
+        # --- expand iceage to daily mask for multi-year
+        ia0 = self.iceage.isel(X=ix,Y=iy)['age_of_sea_ice'].values
+        ia7 = np.repeat(ia0,7)
+        nn = 2 if tt.dt.is_leap_year.any() else 1
+        for i in range(nn):
+            ia7 = np.append(ia7,ia0[-1])
+        ia_mask = xr.where(ia7>1,1,0)
+
+        fy = alb0['first_year']
+        my = alb0['multi_year']
+        aa = alb0['actual_age']
+
+        em_jday = onset0['Earlymelt'].values.astype(int)
+        md_jday = onset0['Melt'].values.astype(int)
+        fr_jday = onset0['Freeze'].values.astype(int)
+        ef_jday = onset0['Earlyfreeze'].values.astype(int)
+
+        has_em = ~np.isnan(onset0['Earlymelt'].values)
+        has_ef = ~np.isnan(onset0['Earlyfreeze'].values)
+        assert ~np.isnan(onset0['Melt'].values) and \
+            ~np.isnan(onset0['Melt'].values), f'No onset date for this location: lat={lat}, lon={lon}.'
+            
+        md = pd.to_datetime(md_jday+tyr*1000,format='%Y%j')
+        fr = pd.to_datetime(fr_jday+tyr*1000,format='%Y%j')
+        md_str = md.strftime('%Y-%m-%d')
+        fr_str = fr.strftime('%Y-%m-%d')
+
+        if fig is None or ax is None: 
+            fig, ax = plt.subplots(1,1,figsize=(10,5))
+
         ax.plot(tt,fy,'g',tt,my,'k',tt,aa,'b',lw=2,marker=marker,ms=ms)
         ax.legend(['first-year','multi-year','actual-age'],loc=3,fontsize=ftsz)
-        ax.axvline(x=em,ymax=.9,linestyle=':',color='r',alpha=.7)
-        ax.axvline(x=md,ymax=.9,linestyle='-.',color='r',alpha=.7)
-        ax.axvline(x=ef,ymax=.3,linestyle=':',color='k',alpha=.7)
-        ax.axvline(x=fr,ymax=.3,linestyle='-.',color='k',alpha=.7)
+        ax.axvline(x=md,ymax=.9,linestyle='--',color='r',alpha=.7)
+        ax.axvline(x=fr,ymax=.3,linestyle='--',color='k',alpha=.7)
+        if has_em:
+            em = pd.to_datetime(em_jday+tyr*1000,format='%Y%j')
+            em_str = em.strftime('%Y-%m-%d')
+            #ax.axvline(x=em,ymax=.9,linestyle=':',color='r',alpha=.7)
+        if has_ef:
+            ef = pd.to_datetime(ef_jday+tyr*1000,format='%Y%j')
+            ef_str = ef.strftime('%Y-%m-%d')
+            #ax.axvline(x=ef,ymax=.3,linestyle=':',color='k',alpha=.7)
         ax.fill_between(tt,ia_mask,color='.5',alpha=.3)
 
         x0 = pd.to_datetime(str(tyr)+'0101')
@@ -201,9 +296,13 @@ class test_year:
             sic0 = self.sic['cdr_seaice_conc'].isel(X=ix,Y=iy)
             ax.plot(tt,sic0,'m-',lw=lw)
         ax.grid(True)
-        ax.annotate(f'Early Melt: {em_str}: {em_jday}',(x0,.8))
+        
         ax.annotate(f'Melt: {md_str}: {md_jday}',(x0,.7))
-        ax.annotate(f'Early freeze: {ef_str}: {ef_jday}',(x0,.6))
+        
+        if has_em:
+            ax.annotate(f'Early Melt: {em_str}: {em_jday}',(x0,.8))
+        if has_ef:
+            ax.annotate(f'Early freeze: {ef_str}: {ef_jday}',(x0,.6))
         ax.annotate(f'Freeze: {fr_str}: {fr_jday}',(x0,.5))
         ax.annotate(f'Gray shading: ice age>1',(x0,.4))
         ax.set_title(f'{tyr}: lat={lat}, lon={lon}',fontsize=ftsz)

@@ -9,8 +9,8 @@ def albedo_db(ALB_ROOT):
     '''
     fns = sorted( ALB_ROOT.glob('*.nc') )
     rx = re.compile('(\d{4})')
-    yrs = map(int,[rx.findall(x.name).pop() for x in fns])
-    return pd.DataFrame(dict(year=yrs, fn=fns))
+    yrs = [rx.findall(x.name).pop() for x in fns]
+    return pd.DataFrame(dict(time=pd.to_datetime(yrs), fn=fns))
 
 def iceage_db(ICEAGE_ROOT):
     '''
@@ -36,6 +36,15 @@ def onset_db(ONSET_ROOT):
     yrs = [x.name[:4] for x in fns]
     return pd.DataFrame(dict(time=pd.to_datetime(yrs),fn=fns))
 
+def piomas_db_ease2(PIOMAS_ROOT):
+    '''
+    '''
+
+    fns = sorted( Path(PIOMAS_ROOT).glob('hiday*.nc') )
+    rx = re.compile('H(\d{4})')
+    yrs = [rx.findall(x.name).pop() for x in fns]
+    return pd.DataFrame(dict(time=pd.to_datetime(yrs),fn=fns))
+    
 def piomas_db(PIOMAS_ROOT):
     '''
     '''
@@ -61,3 +70,69 @@ def sic_db_ease2(SIC_ROOT):
     rx = re.compile('(\d{4})')
     tt = [rx.findall(x.name).pop() for x in fns]
     return pd.DataFrame(dict(time=pd.to_datetime(tt),fn=fns))
+
+def era5_db(ERA_ROOT):
+    '''
+    '''
+    
+    fns = sorted( Path(ERA_ROOT).glob('ERA*'+'[0-9]'*4+'*.nc') )
+    rx = re.compile('(\d{4})')
+    tt = [rx.findall(x.name).pop() for x in fns]
+    return pd.DataFrame(dict(time=pd.to_datetime(tt),fn=fns))
+
+
+class bodb:
+    def __init__(
+        self,
+        albdir=None,
+        sicdir=None,
+        piodir=None,
+        eradir=None,
+        onsetdir=None,
+        iadir=None,
+
+    ):
+        dbdict = {}
+        if albdir is not None:
+            dbdf = albedo_db(albdir)
+            assert len(dbdf)>0, f'Cannot find matching files under {albdir}'
+            dbdict['albedo'] = dbdf
+        if sicdir is not None:
+            dbdf = sic_db_ease2(sicdir)
+            assert len(dbdf)>0, f'Cannot find matching files under {sicdir}'
+            dbdict['sic'] = dbdf
+        if piodir is not None:
+            dbdf = piomas_db_ease2(piodir)
+            assert len(dbdf)>0, f'Cannot find matching files under {piodir}'
+            dbdict['piomas'] = dbdf
+        if eradir is not None:
+            dbdf = era5_db(eradir)
+            assert len(dbdf)>0, f'Cannot find matching files under {eradir}'
+            dbdict['era5'] = dbdf
+        if onsetdir is not None:
+            dbdf = onset_db(onsetdir)
+            assert len(dbdf)>0, f'Cannot find matching files under {onsetdir}'
+            dbdict['onset'] = dbdf
+        if iadir is not None:
+            dbdf = iceage_db(iadir)
+            assert len(dbdf)>0, f'Cannot find matching files under {iadir}'
+            dbdict['iceage'] = dbdf
+        self.dbdict = dbdict
+        return
+
+    def query(self,year):
+        '''
+        '''
+        dbdict = {}
+        for vn in self.dbdict.keys():
+            tdf = self.dbdict[vn]
+            dfyr = tdf[tdf.time.dt.year==year]
+            if len(dfyr)==0:
+                print(f'Warning: no data found in year {year} for {vn}.')
+            else:
+                dbdict[vn] = dfyr.fn.values[0]
+        return dbdict
+
+
+
+
