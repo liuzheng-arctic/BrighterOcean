@@ -80,8 +80,24 @@ def era5_db(ERA_ROOT):
     tt = [rx.findall(x.name).pop() for x in fns]
     return pd.DataFrame(dict(time=pd.to_datetime(tt),fn=fns))
 
+def pond_db(MP_ROOT):
+    '''
+    '''
+    fns = sorted( Path(MP_ROOT).glob('MODIS*'+'[0-9]'*7+'*.nc') )
+    rx = re.compile('(\d{7})')
+    tt = [rx.findall(x.name).pop() for x in fns]
+    return pd.DataFrame(dict(time=pd.to_datetime(tt,format='%Y%j'),fn=fns))
 
-class bodb:
+def pond_db_ease2(MP_ROOT):
+    '''
+    '''
+    fns = sorted( Path(MP_ROOT).glob('MODIS*'+'[0-9]'*4+'*.nc') )
+    rx = re.compile('(\d{4})')
+    tt = [rx.findall(x.name).pop() for x in fns]
+    return pd.DataFrame(dict(time=pd.to_datetime(tt),fn=fns))
+
+
+class combined_db:
     def __init__(
         self,
         albdir=None,
@@ -90,7 +106,7 @@ class bodb:
         eradir=None,
         onsetdir=None,
         iadir=None,
-
+        ponddir=None
     ):
         dbdict = {}
         if albdir is not None:
@@ -117,6 +133,10 @@ class bodb:
             dbdf = iceage_db(iadir)
             assert len(dbdf)>0, f'Cannot find matching files under {iadir}'
             dbdict['iceage'] = dbdf
+        if ponddir is not None:
+            dbdf = pond_db_ease2(ponddir)
+            assert len(dbdf)>0, f'Cannot find matching files under {ponddir}'
+            dbdict['pond'] = dbdf
         self.dbdict = dbdict
         return
 
