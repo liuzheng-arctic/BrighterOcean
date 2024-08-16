@@ -20,6 +20,8 @@ SYEAR = 1984
 EYEAR = 2022
 SYEAR = 1984
 EYEAR = 2022
+SYEAR = 1979
+EYEAR = 1983
 
 
 outdir = Path('/data/BO/EASE2/SIC/')

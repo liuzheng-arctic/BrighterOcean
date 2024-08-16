@@ -11,8 +11,8 @@ fns = sorted( fERAroot.glob('*.nc') )
 
 fcomp = dict(zlib=True, complevel=5, dtype='float32')
 t_start = timeit.default_timer()
-for ifn,fn in enumerate(fns):
-    
+#for ifn,fn in enumerate(fns):
+for ifn, fn in enumerate([fns[4]]): 
     outfn = outroot/fn.name
     with xr.open_dataset(fn) as ds:
         ds_day = ds.groupby('time.dayofyear').sum(dim='time')

@@ -12,7 +12,7 @@ from bopak.reprocess import set_BOEASE2, ptproj
 
 SBND = 35
 fERAroot = Path('/data/BO/ERA5/daily')
-outdir = Path('/data/BO/ERA5/ease2')
+outdir = Path('/data/BO/EASE2/ERA5/')
 if not outdir.exists(): outdir.mkdir(parents=True, exist_ok=True)
 fns = sorted( fERAroot.glob('*.nc') )
 
@@ -39,7 +39,8 @@ regridder = xesmf.Regridder(
 reuse_weight = True
 fcomp = dict(zlib=True, complevel=5, dtype='float32')
 t_start = timeit.default_timer()
-for ifn,fn in enumerate(fns):
+#for ifn,fn in enumerate(fns):
+for ifn,fn in enumerate([fns[32]]):
     
     outfn = outdir/fn.name
     with xr.open_dataset(fn) as ds:

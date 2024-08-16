@@ -17,17 +17,21 @@ KAPPA0 = 1 # [1/m]
 KA_ICE = 1
 KA_POND = 0.75
 MPF_DAYS = 128
+NMISS0_SIC = 39135
 
 class combined_data:
     def __init__(
         self,year,mds=None,boprj=None,
         albdir=None, onsetdir=None,iadir=None,sicdir=None,
+        sic_intp_fn=None, #sic_miss_fn=None,
         eradir=None,piodir=None,ponddir=None,db_in=None,
         ):
         '''
         '''
 
         self.year = year
+        self.sic_intp_fn = sic_intp_fn
+        #self.sic_miss_fn = sic_miss_fn
         self.set_grid(mds=mds,boprj=boprj)
         self.vns = ['albedo','sic','onset','iceage','piomas','era5']
         if db_in is None:
@@ -41,12 +45,12 @@ class combined_data:
 
         return
     
-    def process(self,):
+    def process(self,interp_sic=True):
         '''
         '''     
         for vn in self.vns:
             assert vn in self.db.keys(), f'Path or database for dataset {vn} is not provided.'
-        self.load_data()
+        self.load_data(interp_sic=interp_sic)
 
         self.data['h_nIC_MYI'] = self.data['insol']*(1-self.data['alb_MYI'])
         self.data['h_ice_MYI'] = self.data['h_nIC_MYI']*self.data['sic']
@@ -109,12 +113,12 @@ class combined_data:
 
         if ftype in ['txt','csv']:
             assert freq=='D', 'Output in txt or csv has to be daily.'
-            odf = pd.DataFrame()
             vdict = self.vdict
             vn2ds = ['lat','lon','emelt','fmelt','efreeze','ffreeze']
             ncols = len(vdict.keys())
             nt = len(self.time)
             for it in range(nt):
+                odf = pd.DataFrame()
                 txt_date = self.time[it].strftime(format='%Y-%m-%d')
                 ofn = outdir/f'BO_EASE2_gridded_25km_{txt_date}.{ftype}'
                 if self.time[it].day==1: print(it,ofn)
@@ -162,9 +166,9 @@ class combined_data:
         for icol in range(ncols):
             vn = vdict[icol+2]
             if vn in vn2ds:
-                dat = tbda.data[vn].values.ravel()
+                dat = self.data[vn].values.ravel()
             else:
-                dat = tbda.data[vn].values[it].ravel()
+                dat = self.data[vn].values[it].ravel()
             odf[vn] = dat
         odf.index += 1
         odat = np.column_stack([odf.index,odf.values])
@@ -181,7 +185,33 @@ class combined_data:
         #nday = xr.DataArray(self.time.dayofyear.values, coords=self.data.time.coords)
         return dat_sum
     
-    def load_data(self):
+    def load_frw_data(self,interp_sic=True,sic_vn='cdr_seaice_conc'):
+        '''
+        '''
+        nt = len(self.time)
+        ny,nx = self.data.lat.shape
+
+        prd = 'era5'; vn = 'ssrd'
+        with xr.open_dataset(self.db[prd]) as ds:
+            self.data['insol'] = (['time','Y','X'], ds[vn].values/86400.)
+            self.data['insol'].attrs['unit'] = 'W/m2'
+
+        prd = 'sic'; vn = sic_vn        
+        with xr.open_dataset(self.db[prd]) as ds:
+            self.data['sic'] = (['time','Y','X'], ds[vn].values)
+            self.data[vn] = (['time','Y','X'], ds[vn].values)
+            self.data['nsidc_nt_seaice_conc'] = (['time','Y','X'], ds['nsidc_nt_seaice_conc'].values)
+            self.data['nsidc_bt_seaice_conc'] = (['time','Y','X'], ds['nsidc_bt_seaice_conc'].values)
+        assert not( interp_sic and self.sic_intp_fn is None ), f'Set interp_sic to False or provide an sic_intp_fn.'
+        if interp_sic:
+            self._interpolate_sic()
+
+
+                    
+        return #ds
+
+    
+    def load_data(self,interp_sic=True):
         '''
         '''
         nt = len(self.time)
@@ -195,6 +225,9 @@ class combined_data:
         prd = 'sic'; vn = 'cdr_seaice_conc'
         with xr.open_dataset(self.db[prd]) as ds:
             self.data['sic'] = (['time','Y','X'], ds[vn].values)
+        assert not( interp_sic and self.sic_intp_fn is None ), f'Set interp_sic to False or provide an sic_intp_fn.'
+        if interp_sic:
+            self._interpolate_sic()
 
         prd = 'onset'
         with xr.open_dataset(self.db[prd]) as ds:   
@@ -245,7 +278,6 @@ class combined_data:
                     
         return #ds
 
-
     @property
     def vdict(self):
         return self._vdict()
@@ -260,6 +292,38 @@ class combined_data:
                 colno = self.data[vn].attrs['ColNo']
                 vdict.update({colno:vn})
         return vdict
+    
+    def _interpolate_sic(self,sic_intp_fn=None):
+        '''
+        '''
+        if sic_intp_fn is None: sic_intp_fn = self.sic_intp_fn
+        assert sic_intp_fn is not None, 'Please provide the sic interpolation file.'
+        assert Path(self.sic_intp_fn).exists(), f'{self.sic_intp_fn} does not exist.'
+        assert 'sic' in self.data.data_vars, 'Please load SIC data first.'
+        with xr.open_dataset(self.sic_intp_fn) as sicds:
+            sicds.load()
+        # --- make sure time stamp matches.
+        t_in_sicds = self.data.time.isin(sicds.time)
+        t_in_year = sicds.time.dt.year==self.year
+        assert (self.data['time'][t_in_sicds]==sicds['time'][t_in_year]).all(), \
+            f'Time stamps in SIC data does not match interpolation data for year {self.year}'
+        self.data['sic'].loc[dict(time=t_in_sicds)] = sicds.sel(time=t_in_year)['sic']
+        return
+    
+    def _check_sic_nan(self):
+        '''
+        Returns:
+        -------
+        missing: bool, if there are missing data in SIC
+        df: pd.DataFrame, a list of dates and number of missing cell in SIC data. 
+        '''
+        assert 'sic' in self.data.data_vars, 'Please load SIC data first.'
+        n_nans = self.data['sic'].isnull().sum(dim=['Y','X']).values 
+        f_miss = n_nans!=NMISS0_SIC
+        missing = f_miss.any()
+        df = pd.DataFrame(dict(time=self.time[f_miss],n_miss=n_nans[f_miss]-NMISS0_SIC))
+        return missing, df
+
     
     def _add_fill_values(self):
         '''
