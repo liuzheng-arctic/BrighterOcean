@@ -66,6 +66,8 @@ class albedo:
     
     def first_year(self, 
                   t_stamp, 
+                  melt_offset = 0,
+                  freeze_offset = 0,
                   format='%Y-%m-%d'):
         '''
         '''
@@ -73,8 +75,10 @@ class albedo:
         doy = t0.day_of_year
         it = doy - 1
         tdat = self.data['first_year'][it]
-        melt = self.onset_date['Melt']
-        freeze = self.onset_date['Freeze']
+        #return
+
+        melt = self.onset_date['Melt'] + melt_offset
+        freeze = self.onset_date['Freeze'] + freeze_offset
         # melt = self.onset_date['Earlymelt']
         # freeze = self.onset_date['Earlyfreeze']
 
@@ -82,7 +86,8 @@ class albedo:
         valid_freeze = (freeze>=FREEZE_MIN) & (melt<=FREEZE_MAX)
         valid_onset = valid_melt & valid_freeze
 
-        stg0 = (doy<melt) & (valid_melt)
+        #stg0 = (doy<melt) & (valid_melt)
+        stg0 = (doy<melt) & (valid_onset)
         stg1 = (doy>=melt) & (doy<melt+7) & (doy<freeze) & valid_onset
         stg2 = (doy>=melt+7) & (doy<melt+14) & (doy<freeze) & valid_onset
         stg3 = (doy>=melt+14) & (doy<melt+21) & (doy<freeze) & valid_onset
@@ -100,7 +105,9 @@ class albedo:
         R4 = -0.0083
         R6 = 0.0082
 
+        #return tdat
         tdat = xr.where( stg0, SNOW_ALB, tdat )
+        #return tdat
         # --- Stage 1: 0.85 --> 0.6
         tdat = xr.where( stg1, SNOW_ALB + (doy-melt)*R1, tdat )
         # --- Stage 2: 0.6 --> 0.32
@@ -138,6 +145,8 @@ class albedo:
      
     def multi_year(self, 
                   t_stamp, 
+                  melt_offset = 0,
+                  freeze_offset = 0,
                   format='%Y-%m-%d'):
         '''
         '''
@@ -149,8 +158,8 @@ class albedo:
         # if it>1:
         #     tdat0 = self.data['multi_year'][it-1].values*1.
 
-        melt = self.onset_date['Melt']
-        freeze = self.onset_date['Freeze']
+        melt = self.onset_date['Melt'] + melt_offset
+        freeze = self.onset_date['Freeze'] + freeze_offset
 
         valid_melt = (melt>=MELT_MIN) & (melt<=MELT_MAX)
         valid_freeze = (freeze>=FREEZE_MIN) & (melt<=FREEZE_MAX)

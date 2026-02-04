@@ -17,9 +17,24 @@ warnings.filterwarnings("ignore")
 # %%
 SYEAR = 1984
 EYEAR = 2022
+SYEAR = 2006
+EYEAR = 2022
 # SYEAR = 2007
 # EYEAR = 2022
 alb_version = 'V0.05'
+# --- The default current version
+alb_version = 'V0.06'
+melt_offset = 0
+freeze_offset = 0
+# --- The test for melt onset shifted earlier by 14 days
+# --> for 1998 and 2020 only
+alb_version = 'T0.01'
+melt_offset = -14
+freeze_offset = 0
+SYEAR = 1998
+EYEAR = 1998
+SYEAR = 2020
+EYEAR = 2020
 
 
 outdir = Path(f'/data/BO/EASE2/albedo/{alb_version}')
@@ -77,8 +92,8 @@ for iyr, tyr in enumerate(range(SYEAR, EYEAR+1)):
     fn_ia = ia_df[ia_df.time.dt.year==tyr].iloc[0].fn
 
     dat_ia = iceage(fn_ia)
-    dat_onset = onset(fn_onset)
-    dat_onset.set_grid(ds_grid=sic_grid)
+    dat_onset = onset(fn_onset,ds_grid=sic_grid)
+    #dat_onset.set_grid(ds_grid=sic_grid)
 
     # --- Setup regridder. Generate the regridder file in the first time, 
     #     reuse in the following years.
@@ -114,8 +129,8 @@ for iyr, tyr in enumerate(range(SYEAR, EYEAR+1)):
 
         iceage_iday = dat_ia.interp(t_day,grid='EASE2')
         
-        tdat_fy = alb.first_year(t_day)
-        tdat_my = alb.multi_year(t_day)
+        tdat_fy = alb.first_year(t_day,melt_offset=melt_offset,freeze_offset=freeze_offset)
+        tdat_my = alb.multi_year(t_day,melt_offset=melt_offset,freeze_offset=freeze_offset)
         tdat_ia = alb.actual_age(t_day, iceage_iday)
         
         if t_day.day==1:

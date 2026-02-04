@@ -63,11 +63,12 @@ class bodata_daily:
 
 class bodata3d:
 
-    def __init__(self,fn,ds=None,vns=None):
+    def __init__(self,fn=None,ds=None,vns=None):
         '''
         '''
-        self.fn = Path(fn)
-        self.year = int(self.fn.stem.split('_')[-1])
+        if fn is not None:
+            self.fn = Path(fn)
+            self.year = int(self.fn.stem.split('_')[-1])
         # if ds is None:
         #     self.load_data(fn,vns=vns)
         # else:
@@ -149,6 +150,26 @@ class bodata3d:
             ods = ods.assign_coords(time=ds.time[0].dt.year.values)
             ods = ods.expand_dims("time")
         return ods
+    
+    @staticmethod
+    def database(boroot,ftype='txt',freq='D'):
+        '''
+        '''
+        if freq=='D':
+            fns_all = sorted( boroot.glob(f'**/*.{ftype}') )
+            rx = re.compile('\d{4}-\d{2}-\d{2}')
+        else:
+            fns_all = sorted( boroot.glob(f'*.nc') )
+            rx = re.compile('\d{4}')
+        fns = []
+        dates = []
+        for fn in fns_all:
+            if rx.search(fn.stem):
+                fns.append(fn)
+                dates.append(rx.findall(fn.stem)[-1])
+        odf = pd.DataFrame(dict(time=pd.to_datetime(dates),fn=fns))
+
+        return odf
         
 
 

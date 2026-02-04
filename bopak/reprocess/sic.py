@@ -10,24 +10,33 @@ from pathlib import Path
 from .utils import ptproj, set_BOEASE2
 
 class sic:
-    def __init__(self,fn,grid_fn = None):
+    def __init__(self,fn,grid_fn = None,ds_grid=None):
         assert Path(fn).exists(), f'{fn} does not exist. Please enter the full path to the file of the PIOMAS daily ice thickness data.'
         self.fn = Path(fn)
-        if grid_fn is not None:
+        if ds_grid is not None: 
+            self.set_grid(ds_grid=ds_grid)
+        elif grid_fn is not None:
              self.set_grid(grid_fn=grid_fn)
+        self.load_data()
+        return
+    
+    def load_data(self,ds_grid=None):
+        '''
+        '''
+        assert hasattr(self,'grid'), 'Please set the grid data from the anscillary grid first'
+        with xr.open_dataset(self.fn) as ds:
+            ds.load()
+            if ds_grid is None and hasattr(self,'grid'): ds_grid = self.grid
+            if ds_grid is not None:
+                ds['x'] = ds_grid['x'].values
+                ds['y'] = ds_grid['y'].values
+            #ds = ds.sortby('y')
+            self.data = ds#.sortby('y')
         self.sic_vns = ['cdr_seaice_conc',
                         'nsidc_nt_seaice_conc',
                         'nsidc_bt_seaice_conc',
                         ]
-        self.load_data()
-        return
-    
-    def load_data(self,):
-        '''
-        '''
-        with xr.open_dataset(self.fn) as ds:
-            ds.load()
-            self.data = ds
+        self.source = 'CDR'
         return
     
     def set_regridder(
@@ -96,7 +105,19 @@ class sic:
         # --- set land/lake/coast to nan to avoid contamination
         vns = [vn for vn in self.data.data_vars if vn not in['projection','crs'] ]
         ds_mask = self.data[vns]
-        for vn_mask in self.sic_vns:
+        # --- the following is an awkward way to handle cdr data as well as BT/NT data.
+        #     cdr data are in sic_vns but these variables are not in BT/NT data
+        #     Update: 01/29/2026: 
+        #     add source to self to distinguish
+        #     move assignment of source, sic_vns to load_data instead of in __init__
+        #     This way btsic and sic will call their own load_data and update their attributes
+        #for vn_mask in self.sic_vns+[self.vn_sic]:
+        if self.source=='CDR':
+            for vn_mask in self.sic_vns or vn_mask==self:
+                if vn_mask in vns:
+                    vmask = xr.where( self.data[vn_mask]<mask_value, 1, 0 )
+                    ds_mask[f'nMask_{vn_mask}'] = vmask
+        elif self.source=='BT':
             vmask = xr.where( self.data[vn_mask]<mask_value, 1, 0 )
             ds_mask[f'nMask_{vn_mask}'] = vmask
         return ds_mask
@@ -104,9 +125,18 @@ class sic:
     def _apply_mask(self,vn_mask='cdr_seaice_conc'):
         '''
         '''
-        for vn_mask in self.sic_vns:
+        # --- the following is an awkward way to handle cdr data as well as BT/NT data.
+        #     cdr data are in sic_vns but these variables are not in BT/NT data
+        #for vn_mask in self.sic_vns+[self.vn_sic]:
+        if self.source=='CDR':
+            for vn_mask in self.sic_vns:
+                if vn_mask in self.data_ease2.data_vars:
+                    tdat = self.data_ease2[vn_mask]
+                    self.data_ease2[vn_mask] = xr.where(self.data_ease2[f'nMask_{vn_mask}']==1, tdat, np.nan)
+        elif self.source=='BT':
             tdat = self.data_ease2[vn_mask]
             self.data_ease2[vn_mask] = xr.where(self.data_ease2[f'nMask_{vn_mask}']==1, tdat, np.nan)
+
         return
     
     def set_grid(self,grid_fn=None,ds_grid=None):
@@ -127,6 +157,7 @@ class sic:
         assert Path(grid_fn).exists(), f'{grid_fn} does not exist.'
         with xr.open_dataset(grid_fn) as ds_grid:
             ds_grid.load()
+            #ds_grid = ds_grid.sortby('y')
         return ds_grid
     
 
@@ -136,13 +167,16 @@ class sic:
         '''
         '''
         # using values from CDR_SIC data and cross checked with the anscillary data for NH
+        # The order of y values in the grid file and the data files are from high to low.
         # This may be changed in future data release. NEED TO CHECK BEFORE USE!!
         if ds_grid is None:
             # hard coded for current version
+            pcproj = ccrs.PlateCarree()
             sic_globe = ccrs.Globe(semimajor_axis=6378273.0,
                                 semiminor_axis=6356889.449)
             sicprj = ccrs.NorthPolarStereo(
                 central_longitude=-45, true_scale_latitude=70,
+                #central_longitude=135, true_scale_latitude=70,
                 globe=sic_globe)    
 
             XLOW = -3837500.
@@ -157,6 +191,7 @@ class sic:
             sic_globe = ccrs.Globe(semimajor_axis=ds_grid.crs.attrs['semimajor_axis'],
                                 semiminor_axis=ds_grid.crs.attrs['semiminor_axis'])
             sicprj = ccrs.NorthPolarStereo(
+                #central_longitude=ds_grid.crs.attrs['straight_vertical_longitude_from_pole'],
                 central_longitude=ds_grid.crs.attrs['longitude_of_projection_origin'],
                 true_scale_latitude=ds_grid.crs.attrs['standard_parallel'],
                 globe=sic_globe)
@@ -168,7 +203,7 @@ class sic:
             DY = abs(np.diff(ds_grid.y.values).mean())
 
         xc = np.arange(XLOW,XHIGH+DX,DX)
-        yc = np.arange(YLOW,YHIGH+DY,DY)
+        yc = np.arange(YLOW,YHIGH+DY,DY)[::-1]
         xcs,ycs = np.meshgrid(xc,yc)
         lonc, latc = ptproj(sicprj,pcproj, xcs,ycs)
      
@@ -184,9 +219,11 @@ class sic:
         mds.attrs['YHIGH'  ] = YHIGH
         mds.attrs['dx'    ] = DX
         mds.attrs['dy'    ] = DY
-        mds.attrs['lat_true'] = ds_grid.crs.attrs['standard_parallel']
-        mds.attrs['lon0'  ] = ds_grid.crs.attrs['longitude_of_projection_origin']
-        mds.attrs['grid'  ] = ds_grid.crs.attrs['grid_mapping_name']
+        if ds_grid is not None:
+            mds.attrs['lat_true'] = ds_grid.crs.attrs['standard_parallel']
+            #mds.attrs['lon0'  ] = ds_grid.crs.attrs['longitude_of_projection_origin']
+            mds.attrs['lon0'  ] = ds_grid.crs.attrs['straight_vertical_longitude_from_pole'],
+            mds.attrs['grid'  ] = ds_grid.crs.attrs['grid_mapping_name']
       
         return mds, sicprj
     

@@ -17,9 +17,11 @@ freq = 'Y'
 outroot = BOROOT/'combined' 
 SYEAR = 2011
 EYEAR = 2011
+# SYEAR = 2005
+# EYEAR = 2005
 
 
-albdir = BOROOT/'albedo/V0.05'
+albdir = BOROOT/'albedo/V0.06'
 btdir = BOROOT/'BTSIC'
 sicdir = BOROOT/'SIC'
 onsetdir = BOROOT/'onset'

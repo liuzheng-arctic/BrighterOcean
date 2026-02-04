@@ -18,13 +18,13 @@ class sic_cdr_only:
         self.load_data()
         return
     
-    def load_data(self,):
-        '''
-        '''
-        with xr.open_dataset(self.fn) as ds:
-            ds.load()
-            self.data = ds
-        return
+    # def load_data(self,):
+    #     '''
+    #     '''
+    #     with xr.open_dataset(self.fn) as ds:
+    #         ds.load()
+    #         self.data = ds
+    #     return
     
     def set_regridder(
             self,mds, 
@@ -138,6 +138,8 @@ class sic_cdr_only:
         '''
         # using values from CDR_SIC data and cross checked with the anscillary data for NH
         # This may be changed in future data release. NEED TO CHECK BEFORE USE!!
+        
+        pcproj = ccrs.PlateCarree()
         if ds_grid is None:
             # hard coded for current version
             sic_globe = ccrs.Globe(semimajor_axis=6378273.0,
@@ -154,7 +156,6 @@ class sic_cdr_only:
             DY = 25e3
         else:
             # if the next version uses the anscillary grid file of this format
-            pcproj = ccrs.PlateCarree()
             sic_globe = ccrs.Globe(semimajor_axis=ds_grid.crs.attrs['semimajor_axis'],
                                 semiminor_axis=ds_grid.crs.attrs['semiminor_axis'])
             sicprj = ccrs.NorthPolarStereo(
@@ -185,9 +186,10 @@ class sic_cdr_only:
         mds.attrs['YHIGH'  ] = YHIGH
         mds.attrs['dx'    ] = DX
         mds.attrs['dy'    ] = DY
-        mds.attrs['lat_true'] = ds_grid.crs.attrs['standard_parallel']
-        mds.attrs['lon0'  ] = ds_grid.crs.attrs['longitude_of_projection_origin']
-        mds.attrs['grid'  ] = ds_grid.crs.attrs['grid_mapping_name']
+        if ds_grid is not None:
+            mds.attrs['lat_true'] = ds_grid.crs.attrs['standard_parallel']
+            mds.attrs['lon0'  ] = ds_grid.crs.attrs['longitude_of_projection_origin']
+            mds.attrs['grid'  ] = ds_grid.crs.attrs['grid_mapping_name']
       
         return mds, sicprj
     
